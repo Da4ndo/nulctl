@@ -233,7 +233,7 @@ fn apply_poll_snapshot(state: &mut DashboardState, snapshot: TelemetrySnapshot) 
 }
 
 fn handle_docker_scroll_up(state: &mut DashboardState) {
-	if !state.latest().is_some_and(|s| !s.containers.is_empty()) {
+	if state.latest().is_none_or(|s| s.containers.is_empty()) {
 		return;
 	}
 	state.docker_scroll = super::docker_panel::docker_scroll_up(state.docker_scroll);

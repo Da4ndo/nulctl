@@ -147,7 +147,7 @@ enum ConnectionInner {
 	},
 	Remote {
 		#[allow(dead_code)]
-		child: Child,
+		child: Box<Child>,
 		stdin: ChildStdin,
 		reader: BufReader<ChildStdout>,
 	},
@@ -216,7 +216,7 @@ impl Connection {
 					proxy,
 				},
 				inner: ConnectionInner::Remote {
-					child,
+					child: Box::new(child),
 					stdin,
 					reader: BufReader::new(stdout),
 				},
