@@ -1,0 +1,66 @@
+name: Feature request
+description: Suggest an improvement or feature for nulctl — the operator CLI
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your interest in improving **nulctl**. Please describe your idea or use case below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What is the pain point or limitation you’re experiencing with nulctl? What are you trying to accomplish?
+      placeholder: |
+        I'm trying to … but nulctl currently …
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like nulctl to work? Include UX suggestions, command examples, or workflow details if relevant.
+      placeholder: |
+        I’d like to see …
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches, workarounds, or external tools you’ve tried or considered.
+      placeholder: |
+        I also considered …
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area (choose the most relevant)
+      options:
+        - TUI Dashboard
+        - CLI Commands / Options
+        - Telemetry Display
+        - SSH / Remote Connection
+        - Key Management
+        - Auth / API mapping
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched open and closed issues for possible duplicates
+          required: true
+        - label: This request is for the **nulctl CLI** (not the nulnet agent)
+          required: true
