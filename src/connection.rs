@@ -15,38 +15,18 @@ const RPC_TIMEOUT: Duration = Duration::from_secs(30);
 /// Per-line timeout for streaming commands (e.g. agent update).
 const STREAM_LINE_TIMEOUT: Duration = Duration::from_secs(300);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum RemoteProxyMethod {
-	Socat,
-	NcOpenbsd,
-	Python3,
-}
-
-impl RemoteProxyMethod {
-	pub fn label(self) -> &'static str {
-		match self {
-			Self::Socat => "socat",
-			Self::NcOpenbsd => "nc.openbsd",
-			Self::Python3 => "python3",
-		}
-	}
-}
-
 #[derive(Debug, Clone)]
 pub enum TransportMethod {
 	LocalUnix { path: String },
-	RemoteSsh {
-		target: String,
-		proxy: RemoteProxyMethod,
-	},
+	RemoteSsh { target: String },
 }
 
 impl TransportMethod {
 	pub fn description(&self) -> String {
 		match self {
 			Self::LocalUnix { path } => format!("local Unix socket ({path})"),
-			Self::RemoteSsh { target, proxy } => {
-				format!("SSH → {target}, proxy: {} → {REMOTE_SOCKET_PATH}", proxy.label())
+			Self::RemoteSsh { target } => {
+				format!("SSH → {target}, socat → {REMOTE_SOCKET_PATH}")
 			}
 		}
 	}
@@ -60,44 +40,12 @@ impl TransportMethod {
 	}
 }
 
-/// Shell snippet executed on the server over `ssh`.
-/// Debian's default `nc` lacks `-U`. Prefer socat, then nc.openbsd, then python3.
-fn remote_socket_proxy_shell(socket_path: &str) -> String {
-	format!(
-		"if command -v socat >/dev/null 2>&1; then \
-exec socat - UNIX-CONNECT:{socket_path}; \
-elif command -v nc.openbsd >/dev/null 2>&1; then \
-exec nc.openbsd -U {socket_path}; \
-elif command -v python3 >/dev/null 2>&1; then \
-exec python3 -c \"import select,socket,sys\\n\
-s=socket.socket(socket.AF_UNIX,socket.SOCK_STREAM)\\n\
-s.connect(sys.argv[1])\\n\
-while True:\\n\
- r,_,_=select.select([s,sys.stdin.buffer],[],[])\\n\
- for x in r:\\n\
-  if x is s:\\n\
-   d=s.recv(4096)\\n\
-   if not d: raise SystemExit(0)\\n\
-   sys.stdout.buffer.write(d);sys.stdout.buffer.flush()\\n\
-  else:\\n\
-   d=sys.stdin.buffer.read(4096)\\n\
-   if not d: raise SystemExit(0)\\n\
-   s.sendall(d)\" {socket_path}; \
-else \
-  echo nulctl: server needs socat or netcat-openbsd >&2; exit 1; fi",
-		socket_path = socket_path
-	)
-}
-
 fn shell_single_quote(s: &str) -> String {
 	format!("'{}'", s.replace('\'', "'\"'\"'"))
 }
 
-async fn detect_remote_proxy(target: &str) -> Result<RemoteProxyMethod, String> {
-	let script = "if command -v socat >/dev/null 2>&1; then echo socat; \
-elif command -v nc.openbsd >/dev/null 2>&1; then echo nc.openbsd; \
-elif command -v python3 >/dev/null 2>&1; then echo python3; \
-else echo none; fi";
+async fn check_remote_socat(target: &str) -> Result<(), String> {
+	let script = "command -v socat >/dev/null 2>&1 || { echo missing; exit 1; }";
 	let remote_cmd = format!("sh -c {}", shell_single_quote(script));
 
 	let output = Command::new("ssh")
@@ -105,24 +53,14 @@ else echo none; fi";
 		.arg(remote_cmd)
 		.output()
 		.await
-		.map_err(|e| format!("Failed to probe remote proxy tools: {}", e))?;
+		.map_err(|e| format!("Failed to probe remote socat: {}", e))?;
 
 	if !output.status.success() {
 		return Err(format!(
-			"SSH probe failed: {}",
-			String::from_utf8_lossy(&output.stderr)
+			"socat not found on {target}. Install it: apt-get install socat"
 		));
 	}
-
-	match String::from_utf8_lossy(&output.stdout).trim() {
-		"socat" => Ok(RemoteProxyMethod::Socat),
-		"nc.openbsd" => Ok(RemoteProxyMethod::NcOpenbsd),
-		"python3" => Ok(RemoteProxyMethod::Python3),
-		other => Err(format!(
-			"No socket proxy on server (got {:?}). Install socat: apt install socat",
-			other
-		)),
-	}
+	Ok(())
 }
 
 #[derive(Debug, Serialize)]
@@ -209,9 +147,9 @@ Use -t user@host to connect via SSH."
 				};
 			}
 		} else {
-			let proxy = detect_remote_proxy(target).await?;
-			let script = remote_socket_proxy_shell(REMOTE_SOCKET_PATH);
-			let remote_cmd = format!("sh -c {}", shell_single_quote(&script));
+			check_remote_socat(target).await?;
+			let socat_cmd = format!("exec socat - UNIX-CONNECT:{REMOTE_SOCKET_PATH}");
+			let remote_cmd = format!("sh -c {}", shell_single_quote(&socat_cmd));
 
 			let mut cmd = Command::new("ssh");
 			cmd.arg(target);
@@ -225,10 +163,7 @@ Use -t user@host to connect via SSH."
 			let stdout = child.stdout.take().ok_or("Failed to open stdout")?;
 
 			Ok(Connection {
-				transport: TransportMethod::RemoteSsh {
-					target: target.to_string(),
-					proxy,
-				},
+				transport: TransportMethod::RemoteSsh { target: target.to_string() },
 				inner: ConnectionInner::Remote {
 					child: Box::new(child),
 					stdin,

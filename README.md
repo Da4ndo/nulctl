@@ -136,10 +136,10 @@ Global `-t` / `--target` skips the picker in both TUI and headless modes. Headle
 
 **Local** — connects to `/opt/nulnet/nulnet.sock` (release default), matching the agent’s `socket_path`.
 
-**Remote via SSH** — proxies the Unix socket over SSH using `socat`, `nc.openbsd`, or `python3` on the remote host (auto-detected). No extra ports required.
+**Remote via SSH** — proxies the Unix socket over SSH using `socat` on the remote host. No extra ports required.
 
 > [!IMPORTANT]
-> Remote hosts need **socat** (recommended), **netcat-openbsd** (`nc.openbsd -U`), or **python3** for socket forwarding. Plain `nc` on Debian/Ubuntu is not sufficient.
+> Remote hosts require **socat** for socket forwarding. Install it via the nulnet installer or manually with `apt-get install socat`.
 
 ---
 
