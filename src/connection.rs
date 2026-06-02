@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader, ReadHalf, WriteHalf};
+#[cfg(unix)]
 use tokio::net::UnixStream;
 use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::time::{timeout, Duration};
@@ -141,6 +142,7 @@ pub struct AgentResponse {
 }
 
 enum ConnectionInner {
+	#[cfg(unix)]
 	Local {
 		writer: WriteHalf<UnixStream>,
 		reader: BufReader<ReadHalf<UnixStream>>,
@@ -166,33 +168,45 @@ impl Connection {
 
 	pub async fn connect(target: &str) -> Result<Self, String> {
 		if target == "localhost" {
-			// In debug builds, allow overriding the socket path via env var so the
-			// developer doesn't need to run nulctl from a specific directory.
-			let socket_path = if cfg!(debug_assertions) {
-				std::env::var("NULNET_SOCK")
-					.map(std::path::PathBuf::from)
-					.unwrap_or_else(|_| std::path::PathBuf::from("./nulnet.sock"))
-			} else {
-				std::path::PathBuf::from(REMOTE_SOCKET_PATH)
-			};
+			#[cfg(not(unix))]
+			{
+				return Err(
+					"Local Unix socket connections are not supported on Windows. \
+Use -t user@host to connect via SSH."
+						.to_string(),
+				);
+			}
 
-			let path_str = socket_path.display().to_string();
-			match UnixStream::connect(&socket_path).await {
-				Ok(stream) => {
-					let (read_half, write_half) = tokio::io::split(stream);
-					Ok(Connection {
-						transport: TransportMethod::LocalUnix { path: path_str },
-						inner: ConnectionInner::Local {
-							writer: write_half,
-							reader: BufReader::new(read_half),
-						},
-					})
-				}
-				Err(e) => Err(format!(
-					"Failed to connect to local socket at {}: {}",
-					socket_path.display(),
-					e
-				)),
+			#[cfg(unix)]
+			{
+				// In debug builds, allow overriding the socket path via env var so the
+				// developer doesn't need to run nulctl from a specific directory.
+				let socket_path = if cfg!(debug_assertions) {
+					std::env::var("NULNET_SOCK")
+						.map(std::path::PathBuf::from)
+						.unwrap_or_else(|_| std::path::PathBuf::from("./nulnet.sock"))
+				} else {
+					std::path::PathBuf::from(REMOTE_SOCKET_PATH)
+				};
+
+				let path_str = socket_path.display().to_string();
+				return match UnixStream::connect(&socket_path).await {
+					Ok(stream) => {
+						let (read_half, write_half) = tokio::io::split(stream);
+						Ok(Connection {
+							transport: TransportMethod::LocalUnix { path: path_str },
+							inner: ConnectionInner::Local {
+								writer: write_half,
+								reader: BufReader::new(read_half),
+							},
+						})
+					}
+					Err(e) => Err(format!(
+						"Failed to connect to local socket at {}: {}",
+						socket_path.display(),
+						e
+					)),
+				};
 			}
 		} else {
 			let proxy = detect_remote_proxy(target).await?;
@@ -265,6 +279,7 @@ impl Connection {
 
 	async fn write_line(&mut self, line: &str) -> Result<(), String> {
 		match &mut self.inner {
+			#[cfg(unix)]
 			ConnectionInner::Local { writer, .. } => {
 				writer.write_all(line.as_bytes()).await.map_err(|e| e.to_string())?;
 				writer.flush().await.map_err(|e| e.to_string())
@@ -280,6 +295,7 @@ impl Connection {
 		let mut line = String::new();
 		let read_fut = async {
 			match &mut self.inner {
+				#[cfg(unix)]
 				ConnectionInner::Local { reader, .. } => reader.read_line(&mut line).await,
 				ConnectionInner::Remote { reader, .. } => reader.read_line(&mut line).await,
 			}
