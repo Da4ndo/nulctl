@@ -1,9 +1,9 @@
 # **NULCTL**
 
-[![CI](https://img.shields.io/github/actions/workflow/status/nulnet/nulctl/ci.yml?branch=main&label=CI)](https://github.com/nulnet/nulctl/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/actions/workflow/status/nulnet/nulctl/release-nulctl.yml?label=Release)](https://github.com/nulnet/nulctl/actions/workflows/release-nulctl.yml)
-[![Latest Release](https://img.shields.io/github/v/release/nulnet/nulctl)](https://github.com/nulnet/nulctl/releases/latest)
-[![License](https://img.shields.io/github/license/nulnet/nulctl)](LICENSE)
+[![CI](https://img.shields.io/github/actions/workflow/status/Da4ndo/nulctl/ci.yml?branch=main&label=CI)](https://github.com/Da4ndo/nulctl/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/actions/workflow/status/Da4ndo/nulctl/release-nulctl.yml?label=Release)](https://github.com/Da4ndo/nulctl/actions/workflows/release-nulctl.yml)
+[![Latest Release](https://img.shields.io/github/v/release/Da4ndo/nulctl)](https://github.com/Da4ndo/nulctl/releases/latest)
+[![License](https://img.shields.io/github/license/Da4ndo/nulctl)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.98+-orange.svg?logo=rust)](https://www.rust-lang.org)
 
 Operator CLI for the [nulnet](https://github.com/nulnet/nulnet) Linux host agent. TUI-first live telemetry dashboard, plus Clap subcommands for scripting and automation.
@@ -19,7 +19,7 @@ Built with Rust + Ratatui.
 
 ### GitHub Releases (recommended)
 
-Pick the asset for your platform from [latest release](https://github.com/nulnet/nulctl/releases/latest):
+Pick the asset for your platform from [latest release](https://github.com/Da4ndo/nulctl/releases/latest):
 
 | Platform | Asset |
 | -------- | ----- |
@@ -33,8 +33,8 @@ Each binary ships with a matching `.sha256` file for verification.
 **Linux example:**
 
 ```bash
-curl -fsSL https://github.com/nulnet/nulctl/releases/latest/download/nulctl-linux-x86_64 -o nulctl
-curl -fsSL https://github.com/nulnet/nulctl/releases/latest/download/nulctl-linux-x86_64.sha256 -o nulctl.sha256
+curl -fsSL https://github.com/Da4ndo/nulctl/releases/latest/download/nulctl-linux-x86_64 -o nulctl
+curl -fsSL https://github.com/Da4ndo/nulctl/releases/latest/download/nulctl-linux-x86_64.sha256 -o nulctl.sha256
 sha256sum -c nulctl.sha256
 chmod +x nulctl
 sudo install -m 755 nulctl /usr/local/bin/nulctl
@@ -45,7 +45,7 @@ sudo install -m 755 nulctl /usr/local/bin/nulctl
 Requires Rust 1.80+ (edition 2024).
 
 ```bash
-git clone https://github.com/nulnet/nulctl.git
+git clone https://github.com/Da4ndo/nulctl.git
 cd nulctl
 cargo build --release
 # binary: target/release/nulctl
@@ -179,7 +179,7 @@ cargo crap --lcov lcov.info --fail-above
 
 ## Contributing
 
-Issues and pull requests are welcome on [github.com/nulnet/nulctl](https://github.com/nulnet/nulctl).
+Issues and pull requests are welcome on [github.com/Da4ndo/nulctl](https://github.com/Da4ndo/nulctl).
 
 1. Fork and clone the repo
 2. Create a branch for your change
