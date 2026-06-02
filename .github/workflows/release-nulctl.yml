@@ -1,0 +1,109 @@
+# This workflow belongs in the nulctl GitHub repository (cli/ is a separate repo).
+# Tag convention in that repo: v*  (e.g. v0.5.4)
+name: Release nulctl
+
+# Runs when you publish a release in GitHub (UI or API). Does not create the release.
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x86_64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: nulctl-linux-x86_64
+          - name: darwin-aarch64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: nulctl-darwin-aarch64
+          - name: darwin-x86_64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: nulctl-darwin-x86_64
+          - name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: nulctl-windows-x86_64.exe
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Install Rust stable
+        run: rustup update stable --no-self-update && rustup default stable
+
+      - name: Add Rust target
+        if: runner.os != 'Windows'
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache Cargo registry and build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ matrix.os }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ matrix.os }}-${{ matrix.target }}-cargo-
+
+      - name: Build nulctl (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cargo build --release --locked --target "${{ matrix.target }}"
+          BIN="target/${{ matrix.target }}/release/nulctl"
+          strip "$BIN"
+          cp "$BIN" "${{ matrix.artifact }}"
+          sha256sum "$BIN" | awk '{print $1}' > "${{ matrix.artifact }}.sha256"
+
+      - name: Build nulctl (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cargo build --release --locked --target "${{ matrix.target }}"
+          $bin = "target\${{ matrix.target }}\release\nulctl.exe"
+          Copy-Item $bin "${{ matrix.artifact }}"
+          (Get-FileHash -Algorithm SHA256 $bin).Hash.ToLower() `
+            | Out-File -Encoding utf8NoBOM "${{ matrix.artifact }}.sha256"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}
+            ${{ matrix.artifact }}.sha256
+
+  upload:
+    name: Upload release assets
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            --clobber \
+            dist/*
